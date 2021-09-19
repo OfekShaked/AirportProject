@@ -1,6 +1,6 @@
-using AirportProject.BL.DataStructures;
-using AirportProject.BL.Interfaces;
 using AirportProject.BL.Models;
+using AirportProject.Common.DataStructures;
+using AirportProject.Common.Interfaces;
 using System;
 using System.Collections.Generic;
 using Xunit;

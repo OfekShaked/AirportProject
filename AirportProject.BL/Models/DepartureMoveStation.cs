@@ -1,5 +1,7 @@
-﻿using AirportProject.BL.DataStructures;
-using AirportProject.BL.Interfaces;
+﻿using AirportProject.Common.DataStructures;
+using AirportProject.Common.Interfaces;
+using AirportProject.DAL;
+using AirportProject.DAL.Interfaces;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -15,8 +17,12 @@ namespace AirportProject.BL.Models
     public class DepartureMoveStation : IDepartureMoveStation
     {
         IAirport _airport;
-        public DepartureMoveStation(IAirport airport)
+        DataAccess _dataAccess;
+        IUnitOfWork _uow;
+        public DepartureMoveStation(IAirport airport,DataAccess dataAccess, IUnitOfWork uow)
         {
+            _dataAccess = dataAccess;
+            _uow = uow;
             _airport = airport;
         }
         public void MoveToNextStation(IPlane plane,IStation currentStation = null)
@@ -38,7 +44,7 @@ namespace AirportProject.BL.Models
                 HandleOneNextStation(null, plane, _airport.Stations[_airport.DepartureStartingStations[0]]);
             }else if (_airport.DepartureStartingStations.Count > 1)//multiple options
             {
-
+                HandleMultipleNextStations(null, plane);
             }
         }
         private void CheckForNextStationToMove(IStation currentStation,IPlane plane)
@@ -79,11 +85,19 @@ namespace AirportProject.BL.Models
         /// <param name="currentStation"></param>
         /// <param name="plane"></param>
         /// <param name="nextStation"></param>
-        private static void MoveStation(IStation currentStation, IPlane plane, IStation nextStation)
+        private void MoveStation(IStation currentStation, IPlane plane, IStation nextStation)
         {
             if (nextStation.CurrentPlaneInside == null)
             {
                 if (currentStation != null) currentStation.SetStationFree();
+                else
+                {
+                    Task.Run(async () =>
+                    {
+                        await _dataAccess.DepartureRepository.SetDepartureFinished(plane.Id);
+                        _uow.Commit();
+                    });
+                }
                 nextStation.AddPlaneToStation(plane);
             }
             else throw new Exception("Next station is not empty!");

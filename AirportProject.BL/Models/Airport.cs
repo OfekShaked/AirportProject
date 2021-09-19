@@ -1,5 +1,9 @@
-﻿using AirportProject.BL.DataStructures;
-using AirportProject.BL.Interfaces;
+﻿using AirportProject.Common.DataStructures;
+using AirportProject.Common.Enums;
+using AirportProject.Common.Interfaces;
+using AirportProject.DAL;
+using AirportProject.DAL.Interfaces;
+using AirportProject.Models.DAL;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -10,6 +14,7 @@ namespace AirportProject.BL.Models
 {
     public class Airport : IAirport
     {
+        public string Id { get; set; }
         public Graph Arrivals { get; set; }
         public Graph Departures { get; set; }
         public List<IStation> Stations { get; set; }
@@ -19,8 +24,25 @@ namespace AirportProject.BL.Models
         public List<int> ArrivalEndingStations { get; set; }
         private DepartureMoveStation _departureMoveStation;
         private ArrivalMoveStation _arrivalMoveStation;
+        private DataAccess _dataAccess;
+        private IUnitOfWork _uow;
+        private DTOMapper _mapper;
 
-        public void CreateNewAirport(IAirportDTO airportDTO = null)
+        public Airport()
+        {
+
+        }
+        public Airport(IMongoContext context, IUnitOfWork uow,IAirport airport = null)
+        {
+            _dataAccess = new DataAccess(context);
+            _uow = uow;
+            Id = airport == null ? _dataAccess.GetNewObjectId() : airport.Id; 
+            _departureMoveStation = new DepartureMoveStation(this, _dataAccess, _uow);
+            _arrivalMoveStation = new ArrivalMoveStation(this,_dataAccess,_uow);
+            _mapper = new DTOMapper();
+            CreateNewAirport(airport);
+        }
+        public void CreateNewAirport(IAirport airportDTO = null)
         {
             if (airportDTO == null)
             {
@@ -36,11 +58,11 @@ namespace AirportProject.BL.Models
             {
                 throw new Exception("Station is empty");
             }
-            if (station.CurrentPlaneInside.Status == Enums.PlaneStatus.Departure)
+            if (station.CurrentPlaneInside.Status == PlaneStatus.Departure)
             {
                 _departureMoveStation.MoveToNextStation(station.CurrentPlaneInside, station);
             }
-            else if (station.CurrentPlaneInside.Status == Enums.PlaneStatus.Arrival)
+            else if (station.CurrentPlaneInside.Status == PlaneStatus.Arrival)
             {
                 _arrivalMoveStation.MoveToNextStation(station.CurrentPlaneInside, station);
             }
@@ -52,33 +74,47 @@ namespace AirportProject.BL.Models
 
         public void GetPlaneFromSimulator(IPlane plane)
         {
-            if (plane.Status == Enums.PlaneStatus.Arrival)
+            if (plane.Status == PlaneStatus.Arrival)
             {
+                Task.Run(async () =>
+                {
+                    await _dataAccess.PlaneRepository.Add(_mapper.PlaneToPlaneDTO((Plane)plane));
+                    await _dataAccess.ArrivalRepository.AddArrival(plane.Id);
+                    _uow.Commit();
+                });
+                
                 SearchForFreeLanding(plane);
             }
             else
             {
+                Task.Run(async () =>
+                {
+                    await _dataAccess.PlaneRepository.Add(_mapper.PlaneToPlaneDTO((Plane)plane));
+                    await _dataAccess.DepartureRepository.AddDeparture(plane.Id);
+                    _uow.Commit();
+                });
                 SearchForFreeDeparting(plane);
             }
+            
         }
 
         public void SearchForFreeDeparting(IPlane plane)
         {
-            throw new NotImplementedException();
+            _departureMoveStation.MoveToNextStation(plane);
         }
 
         public void SearchForFreeLanding(IPlane plane)
         {
-            throw new NotImplementedException();
+            _arrivalMoveStation.MoveToNextStation(plane);
         }
 
         public void SignalPlaneToMove(IPlane plane)
         {
-            if (plane.Status == Enums.PlaneStatus.Departure)
+            if (plane.Status == PlaneStatus.Departure)
             {
                 _departureMoveStation.MoveToNextStation(plane, plane.CurrentStation);
             }
-            else if (plane.Status == Enums.PlaneStatus.Arrival)
+            else if (plane.Status == PlaneStatus.Arrival)
             {
                 _arrivalMoveStation.MoveToNextStation(plane, plane.CurrentStation);
             }
@@ -89,25 +125,26 @@ namespace AirportProject.BL.Models
         }
         public void SignalPlaneFinishedDeparture(IPlane plane)
         {
-            throw new NotImplementedException();
+            plane.Status = PlaneStatus.Finished;
+            
         }
 
         public void SignalPlaneFinishedArrival(IPlane plane)
         {
-            throw new NotImplementedException();
+            plane.Status = PlaneStatus.Finished;
         }
         private void CreateDefaultStations()
         {
             Stations = new List<IStation>
                 {
-                    new Station(0,this){Name="Station0", ConnectedDepartureStations=new List<int>(), ConnectedArrivalStations = new List<int>{1} },
-                    new Station(1,this){Name="Station1", ConnectedDepartureStations=new List<int>(), ConnectedArrivalStations = new List<int>{2} },
-                    new Station(2,this){Name="Station2", ConnectedDepartureStations=new List<int>(), ConnectedArrivalStations = new List<int>{3} },
-                    new Station(3,this){Name="Station3", ConnectedDepartureStations=new List<int>(), ConnectedArrivalStations = new List<int>{4} },
-                    new Station(4,this){Name="Station4", ConnectedDepartureStations=new List<int>(), ConnectedArrivalStations = new List<int>{5,6} },
-                    new Station(5,this){Name="Station5", ConnectedDepartureStations=new List<int>{7}, ConnectedArrivalStations = new List<int>() },
-                    new Station(6,this){Name="Station6", ConnectedDepartureStations=new List<int>{7}, ConnectedArrivalStations = new List<int>() },
-                    new Station(7,this){Name="Station7", ConnectedDepartureStations=new List<int>{3}, ConnectedArrivalStations = new List<int>() },
+                    new Station(0,this,_dataAccess,_uow){Name="Station0", ConnectedDepartureStations=new List<int>(), ConnectedArrivalStations = new List<int>{1} },
+                    new Station(1,this,_dataAccess,_uow){Name="Station1", ConnectedDepartureStations=new List<int>(), ConnectedArrivalStations = new List<int>{2} },
+                    new Station(2,this,_dataAccess,_uow){Name="Station2", ConnectedDepartureStations=new List<int>(), ConnectedArrivalStations = new List<int>{3} },
+                    new Station(3,this,_dataAccess,_uow){Name="Station3", ConnectedDepartureStations=new List<int>(), ConnectedArrivalStations = new List<int>{4} },
+                    new Station(4,this,_dataAccess,_uow){Name="Station4", ConnectedDepartureStations=new List<int>(), ConnectedArrivalStations = new List<int>{5,6} },
+                    new Station(5,this,_dataAccess,_uow){Name="Station5", ConnectedDepartureStations=new List<int>{7}, ConnectedArrivalStations = new List<int>() },
+                    new Station(6,this,_dataAccess,_uow){Name="Station6", ConnectedDepartureStations=new List<int>{7}, ConnectedArrivalStations = new List<int>() },
+                    new Station(7,this,_dataAccess,_uow){Name="Station7", ConnectedDepartureStations=new List<int>{3}, ConnectedArrivalStations = new List<int>() },
                 };
             ArrivalStartingStations = new List<int>
             {
@@ -148,13 +185,27 @@ namespace AirportProject.BL.Models
         public void RemovePlaneFromAllPreviousStationQueues(IPlane plane, IStation previousStation)
         {
             List<int> connectedStationsIds;
-            if(plane.Status== Enums.PlaneStatus.Departure)
+            if(plane.Status== PlaneStatus.Departure)
             {
-                connectedStationsIds = previousStation.ConnectedDepartureStations;
+                if (previousStation != null)
+                {
+                    connectedStationsIds = previousStation.ConnectedDepartureStations;
+                }
+                else
+                {
+                    connectedStationsIds = DepartureStartingStations;
+                }
             }
             else
             {
-                connectedStationsIds = previousStation.ConnectedArrivalStations;
+                if (previousStation != null)
+                {
+                    connectedStationsIds = previousStation.ConnectedArrivalStations;
+                }
+                else
+                {
+                    connectedStationsIds = ArrivalStartingStations;
+                }
             }
             foreach (var stationId in connectedStationsIds)
             {

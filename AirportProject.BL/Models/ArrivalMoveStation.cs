@@ -1,5 +1,7 @@
-﻿using AirportProject.BL.DataStructures;
-using AirportProject.BL.Interfaces;
+﻿using AirportProject.Common.DataStructures;
+using AirportProject.Common.Interfaces;
+using AirportProject.DAL;
+using AirportProject.DAL.Interfaces;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -15,8 +17,13 @@ namespace AirportProject.BL.Models
     public class ArrivalMoveStation : IArrivalMoveStation
     {
         IAirport _airport;
-        public ArrivalMoveStation(IAirport airport)
+        DataAccess _dataAccess;
+        IUnitOfWork _uow;
+
+        public ArrivalMoveStation(IAirport airport,DataAccess dataAccess,IUnitOfWork uow)
         {
+            _dataAccess = dataAccess;
+            _uow = uow;
             _airport = airport;
         }
         public void MoveToNextStation(IPlane plane, IStation currentStation = null)
@@ -32,14 +39,14 @@ namespace AirportProject.BL.Models
         }
         private void HandleArrivalStart(IPlane plane)
         {
-            //check number of departure starting options
+            //check number of arrival starting options
             if (_airport.ArrivalStartingStations.Count == 1) //only one option move to it
             {
                 HandleOneNextStation(null, plane, _airport.Stations[_airport.ArrivalStartingStations[0]]);
             }
             else if (_airport.ArrivalStartingStations.Count > 1)//multiple options
             {
-
+                HandleMultipleNextStations(null,plane);
             }
         }
         private void CheckForNextStationToMove(IStation currentStation, IPlane plane)
@@ -47,7 +54,7 @@ namespace AirportProject.BL.Models
             if (currentStation.ConnectedArrivalStations.Count == 0)
             {
                 currentStation.SetStationFree();
-                _airport.SignalPlaneFinishedDeparture(plane);
+                _airport.SignalPlaneFinishedArrival(plane);
             }
             else if (currentStation.ConnectedArrivalStations.Count == 1)
             {
@@ -80,12 +87,20 @@ namespace AirportProject.BL.Models
         /// <param name="currentStation"></param>
         /// <param name="plane"></param>
         /// <param name="nextStation"></param>
-        private static void MoveStation(IStation currentStation, IPlane plane, IStation nextStation)
+        private void MoveStation(IStation currentStation, IPlane plane, IStation nextStation)
         {
             if (nextStation.CurrentPlaneInside == null)
             {
-                if (currentStation != null) currentStation.SetStationFree();
                 nextStation.AddPlaneToStation(plane);
+                if (currentStation != null) currentStation.SetStationFree();
+                else
+                {
+                    Task.Run(async () =>
+                    {
+                        await _dataAccess.ArrivalRepository.SetArrivalFinished(plane.Id);
+                        _uow.Commit();
+                    });
+                }
             }
             else throw new Exception("Next station is not empty!");
 
@@ -100,7 +115,7 @@ namespace AirportProject.BL.Models
             }
             else
             {
-                emptyConnectedStations = GetEmptyDepartureStations();
+                emptyConnectedStations = GetEmptyArrivalStations();
             }
 
             if (emptyConnectedStations.Count == 0) //No empty connected stations found join the queue for all connected stations
@@ -172,7 +187,7 @@ namespace AirportProject.BL.Models
             }
             return emptyStations;
         }
-        private List<int> GetEmptyDepartureStations()
+        private List<int> GetEmptyArrivalStations()
         {
             List<int> emptyStations = new List<int>();
             foreach (var stationId in _airport.ArrivalStartingStations)

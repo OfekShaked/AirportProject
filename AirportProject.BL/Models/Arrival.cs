@@ -1,5 +1,4 @@
-﻿using AirportProject.BL.Interfaces;
-using AirportProject.BL.Interfaces.DTO;
+﻿using AirportProject.Common.Interfaces;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -10,16 +9,19 @@ namespace AirportProject.BL.Models
 {
     class Arrival : IArrival
     {
-        public Queue<IPlaneDTO> LandingQueue { get; set; }
-
+        public List<IPlane> Landings { get; set; }
+        public Arrival()
+        {
+            Landings = new List<IPlane>();
+        }
         public void AddNewPlaneToQueue(IPlane plane)
         {
-            throw new NotImplementedException();
+            Landings.Add(plane);
         }
 
         public void RemovePlaneFromQueue(IPlane plane)
         {
-            throw new NotImplementedException();
+            Landings.Remove(plane);
         }
     }
 }

@@ -1,4 +1,5 @@
-﻿using AirportProject.BL.Interfaces;
+﻿using AirportProject.Common.Enums;
+using AirportProject.Common.Interfaces;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -23,6 +24,9 @@ namespace AirportProject.BL.Models
         public Simulator(bool isTimerRandom, IAirport airport, TimeSpan? arrivalInterval = null, TimeSpan? departureInterval = null)
         {
             _airport = airport;
+            arrivalGenerator = new Timer();
+            departureGenerator = new Timer();
+            _isTimerRandom = isTimerRandom;
             if (isTimerRandom == false) SetSimulatorIntervals(arrivalInterval, departureInterval);
             else SetRandomIntervals();
         }
@@ -74,13 +78,13 @@ namespace AirportProject.BL.Models
 
         private void CreateNewDeparture_Elapsed(object sender, ElapsedEventArgs e)
         {
-            IPlane departingPlane = new Plane { Id = Guid.NewGuid().ToString(), Name = RandomPlaneNameGenerator(), Status = Enums.PlaneStatus.Departure };
+            IPlane departingPlane = new Plane { Id = Guid.NewGuid().ToString(), Name = RandomPlaneNameGenerator(), Status = PlaneStatus.Departure };
             SendNewFlight(departingPlane);
         }
 
         private void CreateNewArrival_Elapsed(object sender, ElapsedEventArgs e)
         {
-            IPlane arrivingPlane = new Plane { Id = Guid.NewGuid().ToString(), Name = RandomPlaneNameGenerator(), Status = Enums.PlaneStatus.Arrival };
+            IPlane arrivingPlane = new Plane { Id = Guid.NewGuid().ToString(), Name = RandomPlaneNameGenerator(), Status = PlaneStatus.Arrival };
             SendNewFlight(arrivingPlane);
         }
 

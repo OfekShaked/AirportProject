@@ -1,6 +1,8 @@
 ﻿using AirportProject.BL.Exceptions;
-using AirportProject.BL.Interfaces;
-using AirportProject.BL.Interfaces.DTO;
+using AirportProject.Commom.Enums;
+using AirportProject.Common.Interfaces;
+using AirportProject.DAL;
+using AirportProject.DAL.Interfaces;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -11,6 +13,7 @@ namespace AirportProject.BL.Models
 {
     public class Station : IStation
     {
+        public string _id { get; set; }
         public int Id { get; set; }
         private object _lockObject = new object();
         public string Name { get; set; }
@@ -20,9 +23,19 @@ namespace AirportProject.BL.Models
         public List<int> ConnectedArrivalStations { get; set; }
         public Queue<IPlane> PlanesWaitingForStation { get; set; }
         private IAirport _airport;
+        private DataAccess _dataAccess;
+        private IUnitOfWork _uow;
+        private DTOMapper _mapper;
 
-        public Station(int id,IAirport airport, TimeSpan? handlingTime=null)
+        public Station()
         {
+            PlanesWaitingForStation = new Queue<IPlane>();
+        }
+        public Station(int id,IAirport airport, DataAccess dataAccess,IUnitOfWork uow, TimeSpan? handlingTime=null)
+        {
+            _mapper = new DTOMapper();
+            _dataAccess = dataAccess;
+            _uow = uow;
             PlanesWaitingForStation = new Queue<IPlane>();
             if (handlingTime == null) HandlingTime = new TimeSpan(0, 0, 2);
             else HandlingTime = (TimeSpan)handlingTime;
@@ -42,11 +55,14 @@ namespace AirportProject.BL.Models
                     throw new StationException("Plane is not the first in queue");
                 }
                 CurrentPlaneInside = plane;
-                if (plane.CurrentStation != null)
-                {
-                    _airport.RemovePlaneFromAllPreviousStationQueues(plane, plane.CurrentStation);
-                }
+                _airport.RemovePlaneFromAllPreviousStationQueues(plane, plane.CurrentStation);
                 plane.SetCurrentStation(this);
+                Task.Run(async () =>
+                {
+                    await _dataAccess.AirportRepository.Update(_mapper.AirportToAirportDTO((Airport)_airport));
+                    await _dataAccess.PlaneChangesRepository.AddChange(CurrentPlaneInside.Id, PlaneStationStatus.Enter);
+                    _uow.Commit();
+                });
                 StartStationHandling();
             }
         }
@@ -61,11 +77,18 @@ namespace AirportProject.BL.Models
 
         public void SetStationFree()
         {
+            Task.Run(async () =>
+            {
+                await _dataAccess.AirportRepository.Update(_mapper.AirportToAirportDTO((Airport)_airport));
+                await _dataAccess.PlaneChangesRepository.AddChange(CurrentPlaneInside.Id, PlaneStationStatus.Exit);
+                _uow.Commit();
+            });
             CurrentPlaneInside = null;
             if (PlanesWaitingForStation.Count != 0)
             {
                 _airport.SignalPlaneToMove(PlanesWaitingForStation.Peek());
             }
+            
         }
 
         public void SignalStationFinishedHandlingPlane()

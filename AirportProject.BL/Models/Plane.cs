@@ -1,5 +1,5 @@
-﻿using AirportProject.BL.Enums;
-using AirportProject.BL.Interfaces;
+﻿using AirportProject.Common.Enums;
+using AirportProject.Common.Interfaces;
 using System;
 using System.Collections.Generic;
 using System.Linq;
