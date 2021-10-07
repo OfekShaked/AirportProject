@@ -10,9 +10,9 @@ namespace AirportProject.DAL.Interfaces
     public interface IRepository<TEntity> : IDisposable where TEntity : class
     {
         Task Add(TEntity obj);
-        Task<TEntity> GetById(Guid id);
+        Task<TEntity> GetById(string id);
         Task<IEnumerable<TEntity>> GetAll();
         Task Update(TEntity obj);
-        Task Remove(Guid id);
+        Task Remove(string id);
     }
 }

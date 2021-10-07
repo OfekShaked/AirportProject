@@ -17,9 +17,6 @@ namespace AirportProject.DAL
         private readonly List<Func<Task>> _commands;
         public MongoContext(IConfiguration configuration)
         {
-            // Set Guid to CSharp style (with dash -)
-            BsonDefaults.GuidRepresentation = GuidRepresentation.CSharpLegacy;
-
             // Every command will be stored and it'll be processed at SaveChanges
             _commands = new List<Func<Task>>();
 
@@ -29,6 +26,12 @@ namespace AirportProject.DAL
             var mongoClient = new MongoClient(configuration.GetSection("MongoSettings").GetSection("Connection").Value);
 
             Database = mongoClient.GetDatabase(configuration.GetSection("MongoSettings").GetSection("DatabaseName").Value);
+            bool isMongoLive = Database.RunCommandAsync((Command<BsonDocument>)"{ping:1}").Wait(1000);
+            if (!isMongoLive)
+            {
+                throw new Exception("Db is offline");
+            }
+
         }
 
         private void RegisterConventions()
@@ -41,12 +44,12 @@ namespace AirportProject.DAL
             ConventionRegistry.Register("My Solution Conventions", pack, t => true);
         }
 
-        public int SaveChanges()
+        public async Task<int> SaveChanges()
         {
             var qtd = _commands.Count;
-            foreach (var command in _commands)
+            foreach (var command in _commands.ToList())
             {
-                command();
+                await command();
             }
 
             _commands.Clear();

@@ -20,12 +20,12 @@ namespace AirportProject.DAL.Repositories
             DbSet = _context.GetCollection<TEntity>(typeof(TEntity).Name);
         }
 
-        public virtual Task Add(TEntity obj)
+        public virtual async Task Add(TEntity obj)
         {
-            return _context.AddCommand(async () => await DbSet.InsertOneAsync(obj));
+            await _context.AddCommand(async () => await DbSet.InsertOneAsync(obj));
         }
 
-        public virtual async Task<TEntity> GetById(Guid id)
+        public virtual async Task<TEntity> GetById(string id)
         {
             var data = await DbSet.FindAsync(Builders<TEntity>.Filter.Eq("_id", id));
             return data.FirstOrDefault();
@@ -36,15 +36,15 @@ namespace AirportProject.DAL.Repositories
             return all.ToList();
         }
 
-        public virtual Task Update(TEntity obj)
+        public virtual async Task Update(TEntity obj)
         {
-            return _context.AddCommand(async () =>
+            await _context.AddCommand(async () =>
             {
                 await DbSet.ReplaceOneAsync(Builders<TEntity>.Filter.Eq("_id", obj.GetId()), obj);
             });
         }
 
-        public virtual Task Remove(Guid id) => _context.AddCommand(() => DbSet.DeleteOneAsync(Builders<TEntity>.Filter.Eq("_id", id)));
+        public virtual Task Remove(string id) => _context.AddCommand(() => DbSet.DeleteOneAsync(Builders<TEntity>.Filter.Eq("_id", id)));
 
         public void Dispose()
         {

@@ -9,5 +9,6 @@ namespace AirportProject.DAL.Interfaces
 {
     public interface IPlaneRepository : IRepository<PlaneDTO>
     {
+        Task SetPlaneStatusFinished(string planeId);
     }
 }

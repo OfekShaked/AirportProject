@@ -17,9 +17,10 @@ namespace AirportProject.DAL.Models
         [BsonRepresentation(BsonType.String)]
         public ObjectId _id { get; set; }
         public string PlaneId { get; set; }
+        public string StationId { get; set; }
         [JsonConverter(typeof(StringEnumConverter))]
         [BsonRepresentation(BsonType.String)]
-        public PlaneStationStatus PlaneStationStatus { get; set; }
+        public PlaneStationStatus Status { get; set; }
         public DateTime CreatedAt => _id.CreationTime;
     }
 }

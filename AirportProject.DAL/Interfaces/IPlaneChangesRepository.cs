@@ -10,6 +10,6 @@ namespace AirportProject.DAL.Interfaces
 {
     public interface IPlaneChangesRepository : IRepository<PlaneChangesDTO>
     {
-        Task AddChange(string planeId, PlaneStationStatus status);
+        Task AddChange(string planeId,string stationId, PlaneStationStatus status);
     }
 }

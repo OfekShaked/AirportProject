@@ -90,5 +90,13 @@ namespace AirportProject.Common.Interfaces
         /// <param name="plane"></param>
         /// <param name="previousStation"></param>
         void RemovePlaneFromAllPreviousStationQueues(IPlane plane, IStation previousStation);
+        /// <summary>
+        /// Updates the airport in the database
+        /// </summary>
+        void UpdateAirport();
+        /// <summary>
+        /// Loads and starts the saved airport
+        /// </summary>
+        void LoadSavedAirport();
     }
 }

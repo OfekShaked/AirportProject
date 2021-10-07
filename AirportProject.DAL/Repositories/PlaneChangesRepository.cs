@@ -1,6 +1,7 @@
 ﻿using AirportProject.Commom.Enums;
 using AirportProject.DAL.Interfaces;
 using AirportProject.DAL.Models;
+using MongoDB.Bson;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -16,9 +17,10 @@ namespace AirportProject.DAL.Repositories
 
         }
 
-        public Task AddChange(string planeId, PlaneStationStatus status)
+        public async Task AddChange(string planeId,string stationId, PlaneStationStatus status)
         {
-            return Add(new PlaneChangesDTO { PlaneId = planeId, PlaneStationStatus = status });
+            var change = new PlaneChangesDTO {PlaneId = planeId, StationId = stationId, Status = status };
+            await DbSet.InsertOneAsync(change);
         }
     }
 }

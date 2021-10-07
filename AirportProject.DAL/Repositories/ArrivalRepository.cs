@@ -1,5 +1,6 @@
 ﻿using AirportProject.DAL.Interfaces;
 using AirportProject.DAL.Models;
+using MongoDB.Bson;
 using MongoDB.Driver;
 using System;
 using System.Collections.Generic;
@@ -16,17 +17,17 @@ namespace AirportProject.DAL.Repositories
 
         }
 
-        public Task AddArrival(string planeId)
+        public async Task AddArrival(string planeId)
         {
-            return Add(new ArrivalDTO { PlaneId = planeId, IsFinished = false });
+            await Add(new ArrivalDTO {_id=ObjectId.GenerateNewId(), PlaneId = planeId, IsFinished = false });
         }
 
         public async Task SetArrivalFinished(string planeId)
         {
-            var data = await DbSet.FindAsync(Builders<ArrivalDTO>.Filter.Eq("PlaneId", planeId));
-            var planeFound = data.FirstOrDefault();
-            planeFound.IsFinished = true;
-            await Update(planeFound);
+            var filter = Builders<ArrivalDTO>.Filter.Eq("PlaneId", planeId);
+            var update = Builders<ArrivalDTO>.Update
+               .Set(p => p.IsFinished, true);
+            var result = await DbSet.UpdateOneAsync(filter, update);
         }
     }
 }

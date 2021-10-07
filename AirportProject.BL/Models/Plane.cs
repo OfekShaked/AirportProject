@@ -15,7 +15,6 @@ namespace AirportProject.BL.Models
         public PlaneStatus Status { get; set; }
         public IStation CurrentStation { get; set; }
         public int CurrentStationId { get; set; }
-
         public void SetCurrentStation(IStation station)
         {
             CurrentStation = station;

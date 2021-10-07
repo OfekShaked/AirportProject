@@ -8,7 +8,8 @@ namespace AirportProject.Commom.Enums
 {
     public enum PlaneStationStatus
     {
-        Enter,
-        Exit
+        Other,
+        EnterStation,
+        ExitStation
     }
 }

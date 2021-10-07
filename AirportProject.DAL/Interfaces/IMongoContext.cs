@@ -10,7 +10,7 @@ namespace AirportProject.DAL.Interfaces
     public interface IMongoContext : IDisposable
     {
         Task AddCommand(Func<Task> func);
-        int SaveChanges();
+        Task<int> SaveChanges();
         IMongoCollection<T> GetCollection<T>(string name);
     }
     }

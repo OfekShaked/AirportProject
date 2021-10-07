@@ -1,5 +1,7 @@
 ﻿using AirportProject.BL.Models;
 using AirportProject.Common.Interfaces;
+using AirportProject.DAL;
+using AirportProject.DAL.Interfaces;
 using AirportProject.Models.DAL;
 using AutoMapper;
 using MongoDB.Bson;
@@ -20,31 +22,78 @@ namespace AirportProject.BL
         {
             var configuration = new MapperConfiguration(cfg =>
             {
-                cfg.CreateMap<ObjectId, string>().ConvertUsing(o => o.ToString());
-                cfg.CreateMap<string, ObjectId>().ConvertUsing(o => ObjectId.Parse(o));
-                cfg.CreateMap<IPlane,PlaneDTO>().ForMember(x => x._id, opt => opt.MapFrom(src => src.Id)).ForMember(x => x.CreatedAt, opt => opt.Ignore()).ReverseMap().ForMember(x => x.Id, opt => opt.MapFrom(src => src._id));
-                cfg.CreateMap<IStation,StationDTO>().ForMember(x => x._id, opt => opt.MapFrom(src => src._id)).ForMember(dest => dest.CreatedAt, opt => opt.Ignore()).ReverseMap().ForMember(x => x._id, opt => opt.MapFrom(src => src._id)).ForMember(x => x.PlanesWaitingForStation, opt => opt.Ignore()); 
-                cfg.CreateMap<IAirport,AirportDTO>().ForMember(x => x._id, opt => opt.MapFrom(src=>src.Id)).ForMember(x => x.DTOStations, opt => opt.MapFrom(src => src.Stations)).ReverseMap().ForMember(x => x.Stations, opt => opt.MapFrom(src => src.DTOStations)).ForMember(x=>x.Id, opt=>opt.MapFrom(src=>src._id));
-                cfg.CreateMap<Plane, PlaneDTO>().ForMember(x => x._id, opt => opt.MapFrom(src => src.Id)).ForMember(x => x.CreatedAt, opt => opt.Ignore()).ReverseMap().ForMember(x => x.Id, opt => opt.MapFrom(src => src._id));
-                cfg.CreateMap<Station, StationDTO>().ForMember(x => x._id, opt => opt.MapFrom(src => src._id)).ForMember(dest=>dest.CreatedAt,  opt=>opt.Ignore()).ReverseMap().ForMember(x => x.PlanesWaitingForStation, opt => opt.Ignore()).ForMember(x => x._id, opt => opt.MapFrom(src => src._id));
-                cfg.CreateMap<Airport, AirportDTO>().ForMember(x => x.DTOStations, opt => opt.MapFrom(src => src.Stations)).ForMember(x => x._id, opt => opt.MapFrom(src => src.Id));
-                cfg.CreateMap<AirportDTO, Airport>().ForMember(x => x.Stations, opt => opt.MapFrom(src => src.DTOStations)).ForMember(x=>x.Arrivals, opt=>opt.Ignore()).ForMember(x=>x.Departures, opt=>opt.Ignore()).ForMember(x => x.Id, opt => opt.MapFrom(src => src._id));
+                cfg.CreateMap<ObjectId, string>()
+                .ConvertUsing(o => o.ToString());
+                cfg.CreateMap<string, ObjectId>()
+                .ConvertUsing(o => ObjectId.Parse(o));
+                cfg.CreateMap<IPlane,PlaneDTO>()
+                .ForMember(x => x._id, opt => opt.MapFrom(src => src.Id))
+                .ForMember(x => x.CreatedAt, opt => opt.Ignore())
+                .ReverseMap()
+                .ForMember(x => x.Id, opt => opt.MapFrom(src => src._id));
+                cfg.CreateMap<IStation,StationDTO>()
+                .ForMember(x => x._id, opt => opt.MapFrom(src => src._id))
+                .ForMember(dest => dest.CreatedAt, opt => opt.Ignore())
+                .ReverseMap()
+                .ForMember(x => x._id, opt => opt.MapFrom(src => src._id))
+                .ForMember(x => x.PlanesWaitingForStation, opt => opt.Ignore()); 
+                cfg.CreateMap<IAirport,AirportDTO>()
+                .ForMember(x => x._id, opt => opt.MapFrom(src=>src.Id))
+                .ForMember(x => x.DTOStations, opt => opt.MapFrom(src => src.Stations))
+                .ReverseMap()
+                .ForMember(x => x.Stations, opt => opt.MapFrom(src => src.DTOStations))
+                .ForMember(x=>x.Id, opt=>opt.MapFrom(src=>src._id));
+                cfg.CreateMap<Plane, PlaneDTO>()
+                .ForMember(x => x._id, opt => opt.MapFrom(src => src.Id))
+                .ForMember(x => x.CreatedAt, opt => opt.Ignore())
+                .ReverseMap()
+                .ForMember(x => x.Id, opt => opt.MapFrom(src => src._id));
+                cfg.CreateMap<Station, StationDTO>()
+                .ForMember(x => x._id, opt => opt.MapFrom(src => src._id))
+                .ForMember(dest=>dest.CreatedAt,  opt=>opt.Ignore())
+                .ReverseMap()
+                .ForMember(x => x.PlanesWaitingForStation, opt => opt.Ignore())
+                .ForMember(x => x._id, opt => opt.MapFrom(src => src._id));
+                cfg.CreateMap<Airport, AirportDTO>()
+                .ForMember(x => x.DTOStations, opt => opt.MapFrom(src => src.Stations))
+                .ForMember(x => x._id, opt => opt.MapFrom(src => src.Id));
+                cfg.CreateMap<AirportDTO, Airport>()
+                .ForMember(x => x.Stations, opt => opt.MapFrom(src => src.DTOStations))
+                .ForMember(x=>x.Arrivals, opt=>opt.Ignore()).ForMember(x=>x.Departures, opt=>opt.Ignore())
+                .ForMember(x => x.Id, opt => opt.MapFrom(src => src._id));
             });
             // only during development, validate your mappings; remove it before release
             configuration.AssertConfigurationIsValid();
             mapper = configuration.CreateMapper();
         }
 
-        public Airport AirportDTOToAirport(AirportDTO airportDTO)
+        public Airport AirportDTOToAirport(AirportDTO airportDTO,IDataAccess dataAccess=null,IUnitOfWork uow=null)
         {
-            Airport airport = new Airport
+            Airport airport;
+            if (dataAccess == null || uow == null)
             {
-                DepartureEndingStations = airportDTO.DepartureEndingStations,
-                ArrivalEndingStations = airportDTO.ArrivalEndingStations,
-                DepartureStartingStations = airportDTO.DepartureStartingStations,
-                ArrivalStartingStations = airportDTO.ArrivalStartingStations,
-                Stations = new List<IStation>(mapper.Map<List<Station>>(airportDTO.DTOStations))
-            };
+                 airport = new Airport()
+                {
+                    Id = airportDTO._id.ToString(),
+                    DepartureEndingStations = airportDTO.DepartureEndingStations,
+                    ArrivalEndingStations = airportDTO.ArrivalEndingStations,
+                    DepartureStartingStations = airportDTO.DepartureStartingStations,
+                    ArrivalStartingStations = airportDTO.ArrivalStartingStations,
+                    Stations = new List<IStation>(mapper.Map<List<Station>>(airportDTO.DTOStations))
+                };
+            }
+            else
+            {
+                 airport = new Airport(dataAccess, uow)
+                {
+                    Id = airportDTO._id.ToString(),
+                    DepartureEndingStations = airportDTO.DepartureEndingStations,
+                    ArrivalEndingStations = airportDTO.ArrivalEndingStations,
+                    DepartureStartingStations = airportDTO.DepartureStartingStations,
+                    ArrivalStartingStations = airportDTO.ArrivalStartingStations,
+                    Stations = new List<IStation>(mapper.Map<List<Station>>(airportDTO.DTOStations))
+                };
+            }
             return airport;
         }
         public AirportDTO AirportToAirportDTO(Airport airport)

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -19,10 +20,10 @@ namespace AirportProject.Common.Interfaces
             get;
             set;
         }
-        IPlane CurrentPlaneInside
-        {
-            get;
-            set;
+        IPlane CurrentPlaneInside 
+        { 
+            get; 
+            set; 
         }
         TimeSpan HandlingTime
         {
@@ -47,6 +48,8 @@ namespace AirportProject.Common.Interfaces
             get;
             set;
         }
+        bool IsPlaneInside();
+        void SetCurrentPlaneInside(IPlane plane);
         /// <summary>
         /// Sends a signals that contains the current station id to the airport that the current station finished handling the plane
         /// </summary>
@@ -69,5 +72,9 @@ namespace AirportProject.Common.Interfaces
         /// </summary>
         /// <param name="plane"></param>
         void RemovePlaneFromQueue(IPlane plane);
+        /// <summary>
+        /// Restart the station plane handling if plane is inside on new load
+        /// </summary>
+        void RestartStationHandling();
     }
 }

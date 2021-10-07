@@ -9,6 +9,6 @@ namespace AirportProject.DAL.Interfaces
 {
     public interface IAirportRepository : IRepository<AirportDTO>
     {
-
+        public Task AddOrUpdate(AirportDTO airport);
     }
 }

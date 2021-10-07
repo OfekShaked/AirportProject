@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 
 namespace AirportProject.DAL
 {
-    public class DataAccess
+    public class DataAccess : IDataAccess
     {
         public IAirportRepository AirportRepository { get; set; }
         public IPlaneChangesRepository PlaneChangesRepository { get; set; }
@@ -17,6 +17,7 @@ namespace AirportProject.DAL
         public IStationRepository StationRepository { get; set; }
         public IArrivalRepository ArrivalRepository { get; set; }
         public IDepartureRepository DepartureRepository { get; set; }
+        public IDbQueue TaskQueue { get; set; }
         IMongoContext _contex;
         public DataAccess(IMongoContext context)
         {
@@ -27,6 +28,7 @@ namespace AirportProject.DAL
             PlaneChangesRepository = new PlaneChangesRepository(context);
             DepartureRepository = new DepartureRepository(context);
             ArrivalRepository = new ArrivalRepository(context);
+            TaskQueue = new DbQueue();
         }
         public string GetNewObjectId()
         {

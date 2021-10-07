@@ -6,8 +6,8 @@ using System.Threading.Tasks;
 
 namespace AirportProject.DAL.Interfaces
 {
-    public interface IUnitOfWork : IDisposable
+    public interface IDbQueue
     {
-        Task<bool> Commit();
+        void AddTask(Task task);
     }
 }
