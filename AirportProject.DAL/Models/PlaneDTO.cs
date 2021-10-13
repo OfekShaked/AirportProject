@@ -9,17 +9,16 @@ using System.Text;
 using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 
-namespace AirportProject.Models.DAL
+namespace AirportProject.DAL.Models
 {
     public class PlaneDTO 
     {
         [BsonId]
         [BsonRepresentation(BsonType.String)]
         public ObjectId _id { get; set; }
-        public string Name { get; set; }
-        [JsonConverter(typeof(StringEnumConverter))]  
-        [BsonRepresentation(BsonType.String)]         
-        public PlaneStatus Status { get; set; }
+        public string Name { get; set; }        
+        public string Status { get; set; }
+        [BsonElement]
         public int CurrentStationId { get; set; }
         public DateTime CreatedAt => _id.CreationTime;
     }

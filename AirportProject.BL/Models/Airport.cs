@@ -1,10 +1,10 @@
-﻿using AirportProject.Common.DataStructures;
+﻿using AirportProject.BL.Interfaces;
+using AirportProject.Common.DataStructures;
 using AirportProject.Common.Enums;
 using AirportProject.Common.Interfaces;
 using AirportProject.DAL;
 using AirportProject.DAL.Interfaces;
 using AirportProject.DAL.Models;
-using AirportProject.Models.DAL;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -27,19 +27,21 @@ namespace AirportProject.BL.Models
         private ArrivalMoveStation _arrivalMoveStation;
         private IDataAccess _dataAccess;
         private IUnitOfWork _uow;
+        private INotifyUpdates NotifyUpdates;
         private DTOMapper _mapper;
         private bool _isCreated = false;
 
         public Airport()
         {
         }
-        public Airport(IDataAccess dataAccess, IUnitOfWork uow,IAirport airport = null)
+        public Airport(IDataAccess dataAccess, IUnitOfWork uow, IAirport airport = null, INotifyUpdates notifyUpdates = null)
         {
             _dataAccess = dataAccess;
+            NotifyUpdates = notifyUpdates;
             _uow = uow;
-            Id = airport == null ? _dataAccess.GetNewObjectId() : airport.Id; 
+            Id = airport == null ? _dataAccess.GetNewObjectId() : airport.Id;
             _departureMoveStation = new DepartureMoveStation(this, _dataAccess, _uow);
-            _arrivalMoveStation = new ArrivalMoveStation(this,_dataAccess,_uow);
+            _arrivalMoveStation = new ArrivalMoveStation(this, _dataAccess, _uow);
             _mapper = new DTOMapper();
             CreateNewAirport(airport);
         }
@@ -55,6 +57,10 @@ namespace AirportProject.BL.Models
             else
             {
                 Stations = airport.Stations;
+                List<IStation> newStations = new List<IStation>();
+                Stations.ForEach(x => { newStations.Add(_mapper.StationAddInterfaces(x, _dataAccess, _uow, this)); });
+                Stations = newStations;
+                Stations.ForEach(x => { if (x.CurrentPlaneInside != null) x.CurrentPlaneInside.CurrentStation = x; });
                 ArrivalStartingStations = airport.ArrivalStartingStations;
                 ArrivalEndingStations = airport.ArrivalEndingStations;
                 DepartureEndingStations = airport.DepartureEndingStations;
@@ -65,81 +71,88 @@ namespace AirportProject.BL.Models
                 await _dataAccess.AirportRepository.AddOrUpdate(_mapper.AirportToAirportDTO(this));
                 await _uow.Commit();
             }));
-            StationsToGraphsConvertor(); 
+            StationsToGraphsConvertor();
+            if (airport != null) LoadSavedAirport();
             _isCreated = true;
-        
+
         }
 
 
         public void StationFinishedHandlingPlaneCallBack(IStation station)
         {
-            if (station.IsPlaneInside() == false)
+            try
             {
-                throw new Exception("Station is empty");
+                if (station.CurrentPlaneInside == null)
+                {
+                    return;
+                }
+                if (station.CurrentPlaneInside.Status == PlaneStatus.Departure)
+                {
+                    _departureMoveStation.MoveToNextStation(station.CurrentPlaneInside, station);
+                }
+                else if (station.CurrentPlaneInside.Status == PlaneStatus.Arrival)
+                {
+                    _arrivalMoveStation.MoveToNextStation(station.CurrentPlaneInside, station);
+                }
+                else
+                {
+                    station.SetStationFree();
+                }
             }
-            if (station.CurrentPlaneInside.Status == PlaneStatus.Departure)
+            catch
             {
-                 _departureMoveStation.MoveToNextStation(station.CurrentPlaneInside, station);
-            }
-            else if (station.CurrentPlaneInside.Status == PlaneStatus.Arrival)
-            {
-                 _arrivalMoveStation.MoveToNextStation(station.CurrentPlaneInside, station);
-            }
-            else
-            {
-                throw new Exception("Plane is not in a correct status");
+                return;
             }
         }
 
         public void GetPlaneFromSimulator(IPlane plane)
         {
             while (!_isCreated) { }
-                plane.Id = _dataAccess.GetNewObjectId();
-                if (plane.Status == PlaneStatus.Arrival)
+            plane.Id = _dataAccess.GetNewObjectId();
+            if (plane.Status == PlaneStatus.Arrival)
+            {
+                _dataAccess.TaskQueue.AddTask(Task.Run(async () =>
                 {
-                    _dataAccess.TaskQueue.AddTask(Task.Run(async () =>
-                    {
-                    await _dataAccess.PlaneRepository.Add(_mapper.PlaneToPlaneDTO((Plane)plane));
-                    await _dataAccess.ArrivalRepository.AddArrival(plane.Id);
+                    await _dataAccess.PlaneRepository.AddPlane(_mapper.PlaneToPlaneDTO((Plane)plane));
+                    if (NotifyUpdates != null) NotifyUpdates.AddArrival(await _dataAccess.ArrivalRepository.AddArrival(plane.Id));
                     await _uow.Commit();
-                    }));
+                    if(NotifyUpdates!=null) NotifyUpdates.UpdatePlannedArrivals(await _dataAccess.ArrivalRepository.GetAllFutureArrivals());
+                }));
                 SearchForFreeLanding(plane);
-                }
-                else
+            }
+            else
+            {
+                _dataAccess.TaskQueue.AddTask(Task.Run(async () =>
                 {
-                    _dataAccess.TaskQueue.AddTask(Task.Run(async () =>
-                    {
-                    await _dataAccess.PlaneRepository.Add(_mapper.PlaneToPlaneDTO((Plane)plane));
-                    await _dataAccess.DepartureRepository.AddDeparture(plane.Id);
+                    await _dataAccess.PlaneRepository.AddPlane(_mapper.PlaneToPlaneDTO((Plane)plane));
+                    if (NotifyUpdates != null) NotifyUpdates.AddDeparture(await _dataAccess.DepartureRepository.AddDeparture(plane.Id));
                     await _uow.Commit();
-                    }));
+                    if (NotifyUpdates != null) NotifyUpdates.UpdatePlannedDepartures(await _dataAccess.DepartureRepository.GetAllFutureDepartures());
+                }));
                 SearchForFreeDeparting(plane);
-                }
+            }
         }
 
         public void SearchForFreeDeparting(IPlane plane)
         {
-             _departureMoveStation.MoveToNextStation(plane);
+            _departureMoveStation.MoveToNextStation(plane);
         }
 
         public void SearchForFreeLanding(IPlane plane)
         {
-             _arrivalMoveStation.MoveToNextStation(plane);
+            _arrivalMoveStation.MoveToNextStation(plane);
         }
 
         public void SignalPlaneToMove(IPlane plane)
         {
+            if (plane == null) return; 
             if (plane.Status == PlaneStatus.Departure)
             {
-                 _departureMoveStation.MoveToNextStation(plane, plane.CurrentStation);
+                _departureMoveStation.MoveToNextStation(plane, plane.CurrentStation);
             }
             else if (plane.Status == PlaneStatus.Arrival)
             {
-                 _arrivalMoveStation.MoveToNextStation(plane, plane.CurrentStation);
-            }
-            else
-            {
-                throw new Exception("Plane is not in a correct status");
+                _arrivalMoveStation.MoveToNextStation(plane, plane.CurrentStation);
             }
         }
         public void SignalPlaneFinishedDeparture(IPlane plane)
@@ -150,6 +163,7 @@ namespace AirportProject.BL.Models
                 await _dataAccess.PlaneRepository.SetPlaneStatusFinished(plane.Id);
                 await _dataAccess.DepartureRepository.SetDepartureFinished(plane.Id);
                 await _uow.Commit();
+                if (NotifyUpdates != null) NotifyUpdates.UpdatePlannedDepartures(await _dataAccess.DepartureRepository.GetAllFutureDepartures());
             }));
         }
 
@@ -159,7 +173,9 @@ namespace AirportProject.BL.Models
             _dataAccess.TaskQueue.AddTask(Task.Run(async () =>
             {
                 await _dataAccess.PlaneRepository.SetPlaneStatusFinished(plane.Id);
+                await _dataAccess.ArrivalRepository.SetArrivalFinished(plane.Id);
                 await _uow.Commit();
+                if (NotifyUpdates != null) NotifyUpdates.UpdatePlannedArrivals(await _dataAccess.ArrivalRepository.GetAllFutureArrivals());
             }));
         }
         private void CreateDefaultStations()
@@ -201,7 +217,7 @@ namespace AirportProject.BL.Models
                 var arrivals = Stations[i].ConnectedArrivalStations;
                 for (int j = 0; j < arrivals.Count; j++)
                 {
-                    Arrivals.AddEdge(i, arrivals[j],(int)Stations[i].HandlingTime.TotalMilliseconds);
+                    Arrivals.AddEdge(i, arrivals[j], (int)Stations[i].HandlingTime.TotalMilliseconds);
                 }
                 var departures = Stations[i].ConnectedDepartureStations;
                 for (int j = 0; j < departures.Count; j++)
@@ -214,7 +230,7 @@ namespace AirportProject.BL.Models
         public void RemovePlaneFromAllPreviousStationQueues(IPlane plane, IStation previousStation)
         {
             List<int> connectedStationsIds;
-            if(plane.Status== PlaneStatus.Departure)
+            if (plane.Status == PlaneStatus.Departure)
             {
                 if (previousStation != null)
                 {
@@ -240,25 +256,52 @@ namespace AirportProject.BL.Models
             {
                 Stations[stationId].RemovePlaneFromQueue(plane);
             }
-            
+
+        }
+        public void SignalDepartureOrArrivalStarted(PlaneStatus status)
+        {
+            if (NotifyUpdates != null)
+            {
+                if (status == PlaneStatus.Arrival)
+                {
+                    Task.Run(async () => { NotifyUpdates.UpdatePlannedArrivals(await _dataAccess.ArrivalRepository.GetAllFutureArrivals()); });
+                }
+                else
+                {
+                    Task.Run(async () => { NotifyUpdates.UpdatePlannedDepartures(await _dataAccess.DepartureRepository.GetAllFutureDepartures()); });
+
+                }
+            }
         }
 
         public void UpdateAirport()
         {
+            var airportDTO = _mapper.AirportToAirportDTO(this);
+            if (NotifyUpdates != null) NotifyUpdates.UpdateAirport(airportDTO);
             _dataAccess.TaskQueue.AddTask(Task.Run(async () =>
             {
-                await _dataAccess.AirportRepository.Update(_mapper.AirportToAirportDTO(this));
+                await _dataAccess.AirportRepository.UpdateAirport(_mapper.AirportToAirportDTO(this));
                 await _uow.Commit();
             }));
         }
 
-        public void LoadSavedAirport()
+        public async void LoadSavedAirport()
         {
-            CreateNewAirport();
-            foreach (var station in Stations)
+            for (int i = 0; i < Stations.Count; i++)
             {
-                station.RestartStationHandling();
+                Stations[i].RestartStationHandling();
+                await Task.Delay(200);
             }
+        }
+
+        public void SignalPlaneFinishedWaitingToLand(IPlane plane)
+        {
+            if (NotifyUpdates != null) NotifyUpdates.RemoveArrival(plane.Id);
+        }
+
+        public void SignalPlaneFinishedWaitingToDepart(IPlane plane)
+        {
+            if (NotifyUpdates != null) NotifyUpdates.RemoveDeparture(plane.Id);
         }
     }
 }

@@ -12,5 +12,6 @@ namespace AirportProject.DAL.Interfaces
         Task AddCommand(Func<Task> func);
         Task<int> SaveChanges();
         IMongoCollection<T> GetCollection<T>(string name);
+        void DropTestDB();
     }
     }

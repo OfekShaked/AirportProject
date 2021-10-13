@@ -38,7 +38,7 @@ namespace LogicTesting
         {
             IStation station = new Station(1,airport.Object, _dataAccess,_uow.Object);
             station.AddPlaneToStation(new Plane());
-            Assert.Throws<StationException>(() => station.AddPlaneToStation(new Plane()));
+            Assert.False(station.AddPlaneToStation(new Plane()));
         }
         [Fact]
         public void TestFlightReceivedWhenStationIsEmpty()
@@ -84,13 +84,16 @@ namespace LogicTesting
             IPlane plane2ToRem = new Plane();
             station.AddPlaneToQueue(plane1ToRem);
             station.AddPlaneToQueue(plane2ToRem);
+            Assert.True(station.PlanesWaitingForStation.Count == 1);
+            plane2ToRem.Id = "12";
+            station.AddPlaneToQueue(plane2ToRem);
             Assert.True(station.PlanesWaitingForStation.Count == 2);
             IPlane plane1Waiting,plane2Waiting;
-            station.PlanesWaitingForStation.TryPeek(out plane1Waiting);
+            plane1Waiting = station.PlanesWaitingForStation.Peek();
             Assert.True(plane1Waiting == plane1ToRem);
             station.RemovePlaneFromQueue(plane1ToRem);
             Assert.True(station.PlanesWaitingForStation.Count == 1);
-            station.PlanesWaitingForStation.TryPeek(out plane2Waiting);
+            plane2Waiting = station.PlanesWaitingForStation.Peek();
             Assert.True(plane2Waiting == plane2ToRem);
 
         }

@@ -49,6 +49,7 @@ namespace AirportProject.DAL
             var qtd = _commands.Count;
             foreach (var command in _commands.ToList())
             {
+                if(command!=null)
                 await command();
             }
 
@@ -60,7 +61,10 @@ namespace AirportProject.DAL
         {
             return Database.GetCollection<T>(name);
         }
-
+        public void DropTestDB()
+        {
+             Database.Client.DropDatabase("AirportProjectTesting");
+        }
         public void Dispose()
         {
             GC.SuppressFinalize(this);

@@ -14,6 +14,7 @@ namespace AirportProject.DAL.Models
         [BsonRepresentation(BsonType.String)]
         public ObjectId _id { get; set; }
         public string PlaneId { get; set; }
-        public bool IsFinished { get; set; }
+        public string AirportPlaneStatus { get; set; }
+        public DateTime CreatedAt => _id.CreationTime;
     }
 }

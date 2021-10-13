@@ -6,7 +6,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace AirportProject.Models.DAL
+namespace AirportProject.DAL.Models
 {
     public class AirportDTO 
     {

@@ -1,4 +1,4 @@
-﻿using AirportProject.Models.DAL;
+﻿using AirportProject.DAL.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -10,5 +10,6 @@ namespace AirportProject.DAL.Interfaces
     public interface IPlaneRepository : IRepository<PlaneDTO>
     {
         Task SetPlaneStatusFinished(string planeId);
+        Task AddPlane(PlaneDTO plane);
     }
 }

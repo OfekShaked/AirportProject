@@ -20,7 +20,7 @@ namespace AirportProject.BL.Models
         IDataAccess _dataAccess;
         IUnitOfWork _uow;
 
-        public ArrivalMoveStation(IAirport airport,IDataAccess dataAccess,IUnitOfWork uow)
+        public ArrivalMoveStation(IAirport airport, IDataAccess dataAccess, IUnitOfWork uow)
         {
             _dataAccess = dataAccess;
             _uow = uow;
@@ -30,11 +30,11 @@ namespace AirportProject.BL.Models
         {
             if (currentStation == null)
             {
-                 HandleArrivalStart(plane);
+                HandleArrivalStart(plane);
             }
             else
             {
-                 CheckForNextStationToMove(currentStation, plane);
+                CheckForNextStationToMove(currentStation, plane);
             }
         }
         private void HandleArrivalStart(IPlane plane)
@@ -42,27 +42,27 @@ namespace AirportProject.BL.Models
             //check number of arrival starting options
             if (_airport.ArrivalStartingStations.Count == 1) //only one option move to it
             {
-                 HandleOneNextStation(null, plane, _airport.Stations[_airport.ArrivalStartingStations[0]]);
+                HandleOneNextStation(null, plane, _airport.Stations[_airport.ArrivalStartingStations[0]]);
             }
             else if (_airport.ArrivalStartingStations.Count > 1)//multiple options
             {
-                 HandleMultipleNextStations(null,plane);
+                HandleMultipleNextStations(null, plane);
             }
         }
         private void CheckForNextStationToMove(IStation currentStation, IPlane plane)
         {
             if (currentStation.ConnectedArrivalStations.Count == 0)
             {
-                 currentStation.SetStationFree();
-                 _airport.SignalPlaneFinishedArrival(plane);
+                currentStation.SetStationFree();
+                _airport.SignalPlaneFinishedArrival(plane);
             }
             else if (currentStation.ConnectedArrivalStations.Count == 1)
             {
-                 HandleOneNextStation(currentStation, plane, _airport.Stations[currentStation.ConnectedArrivalStations[0]]);
+                HandleOneNextStation(currentStation, plane, _airport.Stations[currentStation.ConnectedArrivalStations[0]]);
             }
             else
             {
-                 HandleMultipleNextStations(currentStation, plane);
+                HandleMultipleNextStations(currentStation, plane);
             }
         }
         /// <summary>
@@ -72,14 +72,12 @@ namespace AirportProject.BL.Models
         /// <param name="plane"></param>
         private void HandleOneNextStation(IStation currentStation, IPlane plane, IStation nextStation)
         {
-            if (nextStation.IsPlaneInside() == false)
+            if (nextStation.IsPlaneInside(plane) == false)
             {
-                 MoveStation(currentStation, plane, nextStation);
+                if (MoveStation(currentStation, plane, nextStation)) return;
             }
-            else
-            {
-                nextStation.AddPlaneToQueue(plane);
-            }
+            nextStation.AddPlaneToQueue(plane);
+
         }
         /// <summary>
         /// Sets the current station empty and moves to the next
@@ -87,23 +85,27 @@ namespace AirportProject.BL.Models
         /// <param name="currentStation"></param>
         /// <param name="plane"></param>
         /// <param name="nextStation"></param>
-        private void MoveStation(IStation currentStation, IPlane plane, IStation nextStation)
+        private bool MoveStation(IStation currentStation, IPlane plane, IStation nextStation)
         {
             if (nextStation.IsPlaneInside() == false)
             {
-                nextStation.AddPlaneToStation(plane);
-                if (currentStation != null)  currentStation.SetStationFree();
-                else
+                if (nextStation.AddPlaneToStation(plane))
                 {
-                    _dataAccess.TaskQueue.AddTask(Task.Run(async () =>
+                    if (currentStation != null) currentStation.SetStationFree();
+                    else
                     {
-                        await _dataAccess.ArrivalRepository.SetArrivalFinished(plane.Id);
-                        await _uow.Commit();
-                    }));
+                        _airport.SignalPlaneFinishedWaitingToLand(plane);
+                        _dataAccess.TaskQueue.AddTask(Task.Run(async () =>
+                        {
+                            await _dataAccess.ArrivalRepository.SetArrivalStarted(plane.Id);
+                            await _uow.Commit();
+                            _airport.SignalDepartureOrArrivalStarted(plane.Status);
+                        }));
+                    }
                 }
+                return true;
             }
-            else throw new Exception("Next station is not empty!");
-
+            return false;
         }
 
         private void HandleMultipleNextStations(IStation currentStation, IPlane plane)
@@ -111,11 +113,11 @@ namespace AirportProject.BL.Models
             List<int> emptyConnectedStations;
             if (currentStation != null)
             {
-                emptyConnectedStations = GetEmptyNextStations(currentStation);
+                emptyConnectedStations = GetEmptyNextStations(currentStation, plane);
             }
             else
             {
-                emptyConnectedStations = GetEmptyArrivalStations();
+                emptyConnectedStations = GetEmptyArrivalStations(plane);
             }
 
             if (emptyConnectedStations.Count == 0) //No empty connected stations found join the queue for all connected stations
@@ -126,13 +128,14 @@ namespace AirportProject.BL.Models
             else if (emptyConnectedStations.Count == 1) //Only one connected empty station was found 
             {
                 //joins the only connected station
-                 HandleOneNextStation (currentStation, plane, _airport.Stations[emptyConnectedStations[0]]);
+                HandleOneNextStation(currentStation, plane, _airport.Stations[emptyConnectedStations[0]]);
             }
             else
             {
                 //searches for the shortest out of all the empty stations and joins it.
                 var nextShortestStation = FindShortestStationOutOfMany(emptyConnectedStations);
-                 MoveStation(currentStation, plane, nextShortestStation);
+                if (MoveStation(currentStation, plane, nextShortestStation)) return;
+                else JoinAllQueues(currentStation, plane);
             }
         }
 
@@ -178,37 +181,38 @@ namespace AirportProject.BL.Models
 
         }
 
-        private List<int> GetEmptyNextStations(IStation currentStation)
+        private List<int> GetEmptyNextStations(IStation currentStation, IPlane plane)
         {
             List<int> emptyStations = new List<int>();
             foreach (var stationId in currentStation.ConnectedArrivalStations)
             {
-                if (_airport.Stations[stationId].IsPlaneInside() == false) emptyStations.Add(stationId);
+                if (_airport.Stations[stationId].IsPlaneInside(plane) == false) emptyStations.Add(stationId);
             }
             return emptyStations;
         }
-        private List<int> GetEmptyArrivalStations()
+        private List<int> GetEmptyArrivalStations(IPlane plane)
         {
             List<int> emptyStations = new List<int>();
             foreach (var stationId in _airport.ArrivalStartingStations)
             {
-                if (_airport.Stations[stationId].IsPlaneInside() == false)
+                if (_airport.Stations[stationId].IsPlaneInside(plane) == false)
                 {
                     //make sure that if arrival start and departure ends at the same station airport doesnt get stuck (check for one empty station after).
-                    if (_airport.DepartureEndingStations.Contains(stationId)){
+                    if (_airport.DepartureEndingStations.Contains(stationId))
+                    {
                         bool isEmptyPossible = false;
                         foreach (var station in _airport.Stations[stationId].ConnectedArrivalStations)
                         {
-                            if (_airport.Stations[station].IsPlaneInside() == false)
+                            if (_airport.Stations[station].IsPlaneInside(plane) == false)
                             {
                                 isEmptyPossible = true;
                                 break;
                             }
                         }
-                        if (isEmptyPossible) continue;
+                        if (!isEmptyPossible) continue;
                     }
+                    emptyStations.Add(stationId);
                 }
-                emptyStations.Add(stationId);
             }
             return emptyStations;
         }

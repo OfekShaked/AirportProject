@@ -1,4 +1,5 @@
-﻿using System;
+﻿using AirportProject.Commom.Interfaces;
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
@@ -48,7 +49,8 @@ namespace AirportProject.Common.Interfaces
             get;
             set;
         }
-        bool IsPlaneInside();
+        List<ITrafficConnectedStations> TrafficConnectedPaths { get; set; }
+        bool IsPlaneInside(IPlane plane = null);
         void SetCurrentPlaneInside(IPlane plane);
         /// <summary>
         /// Sends a signals that contains the current station id to the airport that the current station finished handling the plane
@@ -61,7 +63,7 @@ namespace AirportProject.Common.Interfaces
         /// <summary>
         /// Adds a plane to the current station
         /// </summary>
-        void AddPlaneToStation(IPlane plane);
+        bool AddPlaneToStation(IPlane plane);
         /// <summary>
         /// Adds a plane for the station queue
         /// </summary>

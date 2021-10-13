@@ -6,7 +6,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace AirportProject.Models.DAL
+namespace AirportProject.DAL.Models
 {
     public class StationDTO 
     {
@@ -15,7 +15,10 @@ namespace AirportProject.Models.DAL
         public ObjectId _id { get; set; }
         public int Id { get; set; }
         public string Name { get; set; }
+        [BsonElement]
         public PlaneDTO CurrentPlaneInside { get; set; }
+        [BsonElement]
+        public string CurrentPlaneIdInside { get; set; }
         public TimeSpan HandlingTime { get; set; }
         public List<int> ConnectedDepartureStations { get; set; }
         public List<int> ConnectedArrivalStations { get; set; }

@@ -1,4 +1,5 @@
-﻿using AirportProject.DAL.Interfaces;
+﻿using AirportProject.Commom.Enums;
+using AirportProject.DAL.Interfaces;
 using AirportProject.DAL.Models;
 using MongoDB.Bson;
 using MongoDB.Driver;
@@ -16,17 +17,44 @@ namespace AirportProject.DAL.Repositories
         {
 
         }
-        public async Task AddDeparture(string planeId)
+        public async Task<DepartureDTO> AddDeparture(string planeId)
         {
-            await Add(new DepartureDTO {_id=ObjectId.GenerateNewId(), PlaneId = planeId, IsFinished = false });
+            var newDeparture = new DepartureDTO { _id = ObjectId.GenerateNewId(), PlaneId = planeId, AirportPlaneStatus=AirportPlaneStatus.Waiting.ToString()};
+            await DbSet.InsertOneAsync(newDeparture);
+            return newDeparture;
+        }
+
+        public async Task<List<DepartureDTO>> GetAllFutureDepartures()
+        {
+            var filter = Builders<DepartureDTO>.Filter.Where(x => x.AirportPlaneStatus!=AirportPlaneStatus.Finished.ToString());
+            var result = await DbSet.Find(filter).ToListAsync();
+            return result;
+        }
+        public async Task<List<DepartureDTO>> GetAllWaitingDepartures()
+        {
+            var filter = Builders<DepartureDTO>.Filter.Where(x => x.AirportPlaneStatus == AirportPlaneStatus.Waiting.ToString());
+            var result = await DbSet.Find(filter).ToListAsync();
+            return result;
+        }
+        public async Task RemoveAllWaitingDepartures()
+        {
+            var filter = Builders<DepartureDTO>.Filter.Where(x => x.AirportPlaneStatus == AirportPlaneStatus.Waiting.ToString());
+            var result = await DbSet.DeleteManyAsync(filter);
         }
 
         public async Task SetDepartureFinished(string planeId)
         {
-                var filter = Builders<DepartureDTO>.Filter.Eq("PlaneId", planeId);
-                var update = Builders<DepartureDTO>.Update
-                    .Set(p => p.IsFinished, true);
-            var result = await DbSet.UpdateOneAsync(filter, update);
+            var res = await DbSet.FindOneAndUpdateAsync(
+                Builders<DepartureDTO>.Filter.Eq("PlaneId", planeId),
+                Builders<DepartureDTO>.Update.Set(p => p.AirportPlaneStatus, AirportPlaneStatus.Finished.ToString())
+                );
+        }
+        public async Task SetDepartureStarted(string planeId)
+        {
+            var res = await DbSet.FindOneAndUpdateAsync(
+                Builders<DepartureDTO>.Filter.Eq("PlaneId", planeId),
+                Builders<DepartureDTO>.Update.Set(p => p.AirportPlaneStatus, AirportPlaneStatus.Started.ToString())
+                );
         }
     }
 }

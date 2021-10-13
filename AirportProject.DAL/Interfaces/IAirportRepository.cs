@@ -1,4 +1,4 @@
-﻿using AirportProject.Models.DAL;
+﻿using AirportProject.DAL.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -9,6 +9,9 @@ namespace AirportProject.DAL.Interfaces
 {
     public interface IAirportRepository : IRepository<AirportDTO>
     {
-        public Task AddOrUpdate(AirportDTO airport);
+        Task AddOrUpdate(AirportDTO airport);
+        Task<AirportDTO> GetAirport(string id = null);
+        Task UpdateAirport(AirportDTO airport);
+
     }
 }

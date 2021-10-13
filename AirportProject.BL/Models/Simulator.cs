@@ -1,11 +1,12 @@
-﻿using AirportProject.Common.Enums;
+﻿using AirportProject.BL.Interfaces;
+using AirportProject.Common.Enums;
 using AirportProject.Common.Interfaces;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
-using System.Timers;
 
 namespace AirportProject.BL.Models
 {
@@ -14,34 +15,39 @@ namespace AirportProject.BL.Models
         public TimeSpan ArrivalsInterval { get; set; }
         public TimeSpan DeparturesInterval { get; set; }
         public TimeSpan ArrivalInterval { get; set; }
+        private object _lockArrivalTimer = new object();
+        private object _lockDepartureTimer = new object();
         private IAirport _airport;
+        private INotifySimulatorUpdates _notifySimulatorUpdates;
         private bool _isTimerRandom = false;
         private static readonly TimeSpan defaultTime = new TimeSpan(0, 0, 2);
-        private static Timer arrivalGenerator;
-        private static Timer departureGenerator;
+        private Timer arrivalGenerator;
+        private Timer departureGenerator;
+        private TimerCallback arrivalCallback;
+        private TimerCallback departureCallback;
         private static Random rnd = new Random();
+        private bool isEnabled = false;
 
-        public Simulator(bool isTimerRandom, IAirport airport, TimeSpan? arrivalInterval = null, TimeSpan? departureInterval = null)
+        public Simulator(bool isTimerRandom, IAirport airport, INotifySimulatorUpdates notifySimulatorUpdates, TimeSpan? arrivalInterval = null, TimeSpan? departureInterval = null)
         {
             _airport = airport;
-            arrivalGenerator = new Timer();
-            departureGenerator = new Timer();
+            _notifySimulatorUpdates = notifySimulatorUpdates;
             _isTimerRandom = isTimerRandom;
-            if (isTimerRandom == false) SetSimulatorIntervals(arrivalInterval, departureInterval);
-            else SetRandomIntervals();
+            arrivalCallback = new TimerCallback(CreateNewArrival_Elapsed);
+            departureCallback = new TimerCallback(CreateNewDeparture_Elapsed);
         }
 
 
         public void CreateRandomFlight()
         {
             int randomStatus = rnd.Next(1, 3);
-            if(randomStatus == 1)
+            if (randomStatus == 1)
             {
-                CreateNewArrival_Elapsed(null, null);
+                CreateNewArrival_Elapsed(null);
             }
             else
             {
-                CreateNewDeparture_Elapsed(null, null);
+                CreateNewDeparture_Elapsed(null);
             }
         }
 
@@ -52,51 +58,63 @@ namespace AirportProject.BL.Models
 
         public void StartSimulator()
         {
-            arrivalGenerator.Start();
-            departureGenerator.Start();
+            try
+            {
+                isEnabled = true;
+                arrivalGenerator = new Timer(CreateNewArrival_Elapsed, null, 1000, rnd.Next(1000, 10000));
+                departureGenerator = new Timer(CreateNewDeparture_Elapsed, null, 1000, rnd.Next(1000, 10000));
+                if (_notifySimulatorUpdates != null) _notifySimulatorUpdates.NotifySimulatorToggled.Invoke(true);
+
+            }
+            catch (Exception e)
+            {
+                e = e;
+            }
         }
         public void StopSimulator()
         {
-            arrivalGenerator.Stop();
-            departureGenerator.Stop();
+            try
+            {
+                isEnabled = false;
+                arrivalGenerator.Dispose();
+                departureGenerator.Dispose();
+                if (_notifySimulatorUpdates != null) _notifySimulatorUpdates.NotifySimulatorToggled.Invoke(false);
+            }
+            catch (Exception e)
+            {
+                e = e;
+            }
         }
 
-        private void ConfigureTimerSettings()
+        private void CreateNewDeparture_Elapsed(object stateInfo)
         {
-            arrivalGenerator.Elapsed += CreateNewArrival_Elapsed;
-            departureGenerator.Elapsed += CreateNewDeparture_Elapsed;
-            arrivalGenerator.AutoReset = true;
-            departureGenerator.AutoReset = true;
-        }
-        private void SetRandomIntervals()
-        {
-            _isTimerRandom = true;
-            arrivalGenerator.Interval = rnd.Next(1000, 20000);
-            departureGenerator.Interval = rnd.Next(1000, 20000);
-            ConfigureTimerSettings();
+            try
+            {
+                if (isEnabled == false) return;
+                IPlane departingPlane = new Plane("qw", RandomPlaneNameGenerator(),  PlaneStatus.Departure );
+                SendNewFlight(departingPlane);
+            }
+            catch (Exception ex)
+            {
+
+            }
         }
 
-        private void CreateNewDeparture_Elapsed(object sender, ElapsedEventArgs e)
-        {
-            IPlane departingPlane = new Plane { Id = Guid.NewGuid().ToString(), Name = RandomPlaneNameGenerator(), Status = PlaneStatus.Departure };
-            SendNewFlight(departingPlane);
-        }
 
-        private void CreateNewArrival_Elapsed(object sender, ElapsedEventArgs e)
+        private void CreateNewArrival_Elapsed(Object stateInfo)
         {
-            IPlane arrivingPlane = new Plane { Id = Guid.NewGuid().ToString(), Name = RandomPlaneNameGenerator(), Status = PlaneStatus.Arrival };
-            SendNewFlight(arrivingPlane);
-        }
 
-        private void SetSimulatorIntervals(TimeSpan? arrivalInterval, TimeSpan? departureInterval)
-        {
-            if (arrivalInterval == null) ArrivalInterval = defaultTime;
-            else ArrivalInterval = (TimeSpan)arrivalInterval;
-            if (departureInterval == null) DeparturesInterval = defaultTime;
-            else DeparturesInterval = (TimeSpan)departureInterval;
-            arrivalGenerator.Interval = ArrivalInterval.TotalMilliseconds;
-            departureGenerator.Interval = DeparturesInterval.TotalMilliseconds;
-            ConfigureTimerSettings();
+            try
+            {
+                if (isEnabled == false) return;
+                IPlane arrivingPlane = new Plane { Id = Guid.NewGuid().ToString(), Name = RandomPlaneNameGenerator(), Status = PlaneStatus.Arrival };
+                SendNewFlight(arrivingPlane);
+            }
+            catch (Exception ex)
+            {
+
+            }
+
         }
         private string RandomPlaneNameGenerator()
         {
@@ -105,7 +123,7 @@ namespace AirportProject.BL.Models
             string Name = "";
             Name += consonants[rnd.Next(consonants.Length)].ToUpper();
             Name += vowels[rnd.Next(vowels.Length)];
-            int b = 2; 
+            int b = 2;
             while (b < 5)
             {
                 Name += consonants[rnd.Next(consonants.Length)];
@@ -115,6 +133,10 @@ namespace AirportProject.BL.Models
             }
 
             return Name;
+        }
+        public bool IsSimulatorRunning()
+        {
+            return isEnabled;
         }
     }
 }

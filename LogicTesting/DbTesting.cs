@@ -1,4 +1,5 @@
 ﻿using AirportProject.BL.Models;
+using AirportProject.Commom.Enums;
 using AirportProject.Common.Enums;
 using AirportProject.Common.Interfaces;
 using AirportProject.DAL;
@@ -36,27 +37,22 @@ namespace LogicTesting
             _dataAccess = new DataAccess(_context);
         }
         [Fact]
-        public async void TestAirportMovings()
+        public async void TestAddToDB()
         {
+            _context.DropTestDB();
             IAirport airport = new Airport(_dataAccess, _uow);
-            Plane plane1 = new Plane() {Status = PlaneStatus.Arrival };
-            Plane plane2 = new Plane() { Status = PlaneStatus.Arrival };
-            Plane plane3 = new Plane() { Status = PlaneStatus.Departure };
-            Plane plane4 = new Plane() { Status = PlaneStatus.Arrival };
+            var planes = await _dataAccess.PlaneRepository.GetAll();
+            Plane plane1 = new Plane() {Status = PlaneStatus.Arrival, Id="1" };
+            Plane plane2 = new Plane() { Status = PlaneStatus.Arrival, Id = "2" };
+            Plane plane3 = new Plane() { Status = PlaneStatus.Departure, Id = "3" };
+            Plane plane4 = new Plane() { Status = PlaneStatus.Arrival, Id = "4" };
             airport.GetPlaneFromSimulator(plane1);
             airport.GetPlaneFromSimulator(plane2);
             airport.GetPlaneFromSimulator(plane3);
             airport.GetPlaneFromSimulator(plane4);
-            await Task.Delay(30000);
-            var data1 = await _dataAccess.PlaneRepository.GetById(plane1.Id);
-            Assert.True(data1.Status==PlaneStatus.Finished);
-            var data2 = await _dataAccess.PlaneRepository.GetById(plane2.Id);
-            Assert.True(data2.Status == PlaneStatus.Finished);
-            var data3 = await _dataAccess.PlaneRepository.GetById(plane3.Id);
-            Assert.True(data3.Status == PlaneStatus.Finished);
-            var data4 = await _dataAccess.PlaneRepository.GetById(plane4.Id);
-            Assert.True(data4.Status == PlaneStatus.Finished);
-            airport.UpdateAirport();
+            await Task.Delay(15000);
+            var planesUpdated = await _dataAccess.PlaneRepository.GetAll();
+            Assert.True(planesUpdated.Count()- planes.Count()==4);
         }
     }
 }

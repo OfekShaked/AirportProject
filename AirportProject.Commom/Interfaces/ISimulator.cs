@@ -34,5 +34,10 @@ namespace AirportProject.Common.Interfaces
         /// Sends a new flight to the airport
         /// </summary>
         void SendNewFlight(IPlane plane);
+        /// <summary>
+        /// Checks if the simulator is running or not
+        /// </summary>
+        /// <returns></returns>
+        bool IsSimulatorRunning();
     }
 }

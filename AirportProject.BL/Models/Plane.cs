@@ -13,12 +13,33 @@ namespace AirportProject.BL.Models
         public string Id { get; set; }
         public string Name { get; set; }
         public PlaneStatus Status { get; set; }
-        public IStation CurrentStation { get; set; }
+        private IStation _currentStation;
+        public IStation CurrentStation {
+            get
+            {
+                return _currentStation;
+            }
+            set
+            {
+                _currentStation = value;
+                SetCurrentStation(value);
+            }
+        }
         public int CurrentStationId { get; set; }
+        public Plane()
+        {
+            SetCurrentStation(null);
+        }
+        public Plane(string id, string name,PlaneStatus status)
+        {
+            Id = id;
+            Name = name;
+            Status = status;
+            CurrentStation = null;        
+        }
         public void SetCurrentStation(IStation station)
         {
-            CurrentStation = station;
-            if (station == null)
+            if (station==null)
             {
                 switch (Status)
                 {

@@ -36,14 +36,38 @@ namespace LogicTesting
         [Fact]
         public async void TestAirportMovings()
         {
-            IAirport airport = new Airport(_dataAccess,_uow);
+            _context.DropTestDB();
+            IAirport airport = new Airport(_dataAccess, _uow);
+            Plane plane1 = new Plane() { Status = PlaneStatus.Arrival, Id = "1" };
+            Plane plane2 = new Plane() { Status = PlaneStatus.Arrival, Id = "2" };
+            Plane plane3 = new Plane() { Status = PlaneStatus.Departure, Id = "3" };
+            Plane plane4 = new Plane() { Status = PlaneStatus.Arrival, Id = "4" };
+            airport.GetPlaneFromSimulator(plane1);
+            airport.GetPlaneFromSimulator(plane2);
+            airport.GetPlaneFromSimulator(plane3);
+            airport.GetPlaneFromSimulator(plane4);
+            await Task.Delay(15000);
+            int planesInStationsCount = 0;
+            for (int i = 0; i < airport.Stations.Count; i++)
+            {
+                if (airport.Stations[i].CurrentPlaneInside != null)
+                {
+                    planesInStationsCount++;
+                }
+            }
+            Assert.True(planesInStationsCount != 0);
+        }
+        [Fact]
+        public async void TestStationIsEmpty()
+        {
+            //tests both moving station and and next is empty
+            _context.DropTestDB();
+            IAirport airport = new Airport(_dataAccess, _uow);
             airport.CreateNewAirport();
-            airport.GetPlaneFromSimulator(new Plane() {  Status = PlaneStatus.Arrival });
-            //airport.GetPlaneFromSimulator(new Plane() { Status = PlaneStatus.Arrival });
-            //airport.GetPlaneFromSimulator(new Plane() { Status = PlaneStatus.Arrival });
-            //airport.GetPlaneFromSimulator(new Plane() { Status = PlaneStatus.Arrival });
-            await Task.Delay(25000);
-            Assert.True(true);
+            Plane plane1 = new Plane() { Status = PlaneStatus.Arrival, Id = "1" };
+            airport.GetPlaneFromSimulator(plane1);
+            await Task.Delay(15000);
+            Assert.True(airport.Stations[1].CurrentPlaneInside == null);
         }
     }
 }

@@ -1,4 +1,5 @@
 ﻿using AirportProject.Common.DataStructures;
+using AirportProject.Common.Enums;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -45,7 +46,6 @@ namespace AirportProject.Common.Interfaces
             get;
             set;
         } 
-
         /// <summary>
         /// Listen to the simulator to get new arrivals or departures
         /// </summary>
@@ -85,11 +85,22 @@ namespace AirportProject.Common.Interfaces
         /// <param name="plane"></param>
         void SignalPlaneFinishedArrival(IPlane plane);
         /// <summary>
+        /// Signals that the plane landed and is now in the airport
+        /// </summary>
+        /// <param name="plane"></param>
+        void SignalPlaneFinishedWaitingToLand(IPlane plane);
+        /// <summary>
+        /// Signals that the plane departed and started going through the airport
+        /// </summary>
+        /// <param name="plane"></param>
+        void SignalPlaneFinishedWaitingToDepart(IPlane plane);
+        /// <summary>
         /// Removes a plane from all the queues he was from the previous station
         /// </summary>
         /// <param name="plane"></param>
         /// <param name="previousStation"></param>
         void RemovePlaneFromAllPreviousStationQueues(IPlane plane, IStation previousStation);
+        void SignalDepartureOrArrivalStarted(PlaneStatus status);
         /// <summary>
         /// Updates the airport in the database
         /// </summary>

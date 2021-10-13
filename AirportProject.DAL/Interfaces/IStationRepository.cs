@@ -1,4 +1,4 @@
-﻿using AirportProject.Models.DAL;
+﻿using AirportProject.DAL.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;

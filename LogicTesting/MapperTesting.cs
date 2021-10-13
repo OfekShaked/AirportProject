@@ -4,7 +4,7 @@ using AirportProject.Common.Enums;
 using AirportProject.Common.Interfaces;
 using AirportProject.DAL;
 using AirportProject.DAL.Interfaces;
-using AirportProject.Models.DAL;
+using AirportProject.DAL.Models;
 using Microsoft.Extensions.Configuration;
 using MongoDB.Bson;
 using Moq;
@@ -45,17 +45,17 @@ namespace LogicTesting
             Assert.True(planeDTO.GetType() == typeof(PlaneDTO));
             Assert.True(plane.Id == planeDTO._id.ToString());
             Assert.True(plane.Name == planeDTO.Name);
-            Assert.True(plane.Status == planeDTO.Status);
+            Assert.True(plane.Status.ToString() == planeDTO.Status);
         }
         [Fact]
         public void TestPlaneDTOToPlane()
         {
-            PlaneDTO planeDTO = new PlaneDTO { _id = ObjectId.GenerateNewId(), Name = "planeToAus", Status = PlaneStatus.Arrival };
+            PlaneDTO planeDTO = new PlaneDTO { _id = ObjectId.GenerateNewId(), Name = "planeToAus", Status = PlaneStatus.Arrival.ToString() };
             var plane = mapper.PlaneDTOToPlane(planeDTO);
             Assert.True(plane.GetType() == typeof(Plane));
             Assert.True(plane.Id == planeDTO._id.ToString());
             Assert.True(plane.Name == planeDTO.Name);
-            Assert.True(plane.Status == planeDTO.Status);
+            Assert.True(plane.Status.ToString() == planeDTO.Status);
         }
         [Fact]
         public void TestStationToStationDTO()

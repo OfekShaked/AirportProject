@@ -9,7 +9,11 @@ namespace AirportProject.DAL.Interfaces
 {
     public interface IArrivalRepository : IRepository<ArrivalDTO>
     {
-        Task AddArrival (string planeId);
+        Task<ArrivalDTO> AddArrival (string planeId);
         Task SetArrivalFinished(string planeId);
+        Task<List<ArrivalDTO>> GetAllFutureArrivals();
+        Task<List<ArrivalDTO>> GetAllWaitingArrivals();
+        Task RemoveAllWaitingArrivals();
+        Task SetArrivalStarted(string planeId);
     }
 }
